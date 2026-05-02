@@ -3,395 +3,408 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live Earth Tracker — Satellite Map + Weather</title>
+    <title>Earth Tracker — Live Satellite Intelligence Dashboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         :root {
-            --bg: #0a0a0f;
-            --card: #111118;
-            --card-hover: #161620;
-            --border: #1e1e2e;
-            --border-hover: #2a2a3e;
-            --text: #e2e2ea;
-            --text-muted: #6b6b7b;
-            --accent: #00d4aa;
-            --accent2: #ff6b35;
-            --accent3: #818cf8;
-            --green: #2ecc71;
-            --red: #e74c3c;
+            --bg: #07070d;
+            --surface: #0f0f18;
+            --surface-hover: #16162a;
+            --border: #1e1e3e;
+            --border-active: #33334d;
+            --text: #e8e8f2;
+            --text-secondary: #9ca3af;
+            --text-muted: #6b7280;
+            --accent: #22d3ee;
+            --accent-dim: rgba(34, 211, 238, 0.1);
+            --accent-glow: rgba(34, 211, 238, 0.3);
+            --orange: #fb923c;
+            --green: #4ade80;
+            --red: #f87171;
+            --purple: #c084fc;
+            --yellow: #facc15;
+            --font: 'Inter', system-ui, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: 'Inter', -apple-system, sans-serif;
+            font-family: var(--font);
             background: var(--bg);
             color: var(--text);
-            line-height: 1.5;
-            overflow-x: hidden;
-        }
-
-        /* Layout */
-        .app {
-            display: flex;
+            overflow: hidden;
             height: 100vh;
         }
 
-        /* Sidebar */
+        /* ===== LAYOUT ===== */
+        .app { display: flex; height: 100vh; width: 100vw; }
+        
+        /* ===== SIDEBAR ===== */
         .sidebar {
-            width: 320px;
-            background: var(--card);
+            width: 380px;
+            background: var(--surface);
             border-right: 1px solid var(--border);
             display: flex;
             flex-direction: column;
-            transition: transform 0.3s;
             z-index: 1000;
+            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .sidebar.collapsed {
-            transform: translateX(-100%);
-            position: absolute;
-        }
+        .sidebar.hidden { transform: translateX(-100%); position: absolute; }
+        
         .sidebar-header {
             padding: 20px;
             border-bottom: 1px solid var(--border);
         }
         .sidebar-header h1 {
-            font-size: 1.1rem;
+            font-size: 1.25rem;
             font-weight: 800;
-            background: linear-gradient(135deg, var(--accent), var(--accent2));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
+        .sidebar-header h1 span { font-size: 1.5rem; }
         .sidebar-header p {
-            font-size: 0.75rem;
+            font-size: 0.8rem;
             color: var(--text-muted);
             margin-top: 4px;
+        }
+        .live-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--green);
+            margin-top: 8px;
+            padding: 3px 10px;
+            border-radius: 20px;
+            background: rgba(74, 222, 128, 0.1);
+            border: 1px solid rgba(74, 222, 128, 0.2);
+        }
+        .live-badge .pulse {
+            width: 6px; height: 6px; border-radius: 50%; background: var(--green);
+            animation: pulse-live 2s infinite;
+        }
+        @keyframes pulse-live {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
         }
 
         /* Search */
         .search-box {
             padding: 12px 20px;
             border-bottom: 1px solid var(--border);
+            position: relative;
         }
         .search-box input {
             width: 100%;
-            padding: 10px 14px;
+            padding: 10px 14px 10px 38px;
             background: var(--bg);
             border: 1px solid var(--border);
             border-radius: 10px;
             color: var(--text);
             font-size: 0.9rem;
             outline: none;
+            font-family: var(--font);
         }
-        .search-box input:focus {
-            border-color: var(--accent);
-        }
-        .search-box input::placeholder {
-            color: var(--text-muted);
+        .search-box input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+        .search-box input::placeholder { color: var(--text-muted); }
+        .search-icon {
+            position: absolute; left: 32px; top: 50%; transform: translateY(-50%);
+            font-size: 0.9rem; color: var(--text-muted);
         }
 
-        /* Satellite List */
-        .sat-list {
-            flex: 1;
-            overflow-y: auto;
-            padding: 8px;
-        }
-        .sat-item {
-            padding: 14px 16px;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: all 0.2s;
-            margin-bottom: 6px;
-            border: 1px solid transparent;
-        }
-        .sat-item:hover {
-            background: var(--card-hover);
-            border-color: var(--border-hover);
-        }
-        .sat-item.active {
-            background: var(--accent-glow);
-            border-color: var(--accent);
-        }
-        .sat-item-header {
+        /* Filters */
+        .filters {
             display: flex;
-            align-items: center;
-            gap: 10px;
+            gap: 6px;
+            padding: 10px 20px;
+            border-bottom: 1px solid var(--border);
+            overflow-x: auto;
+            scrollbar-width: none;
         }
-        .sat-icon {
-            width: 36px;
-            height: 36px;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.1rem;
-            background: rgba(0,212,170,0.1);
-        }
-        .sat-name {
-            font-weight: 600;
-            font-size: 0.9rem;
-        }
-        .sat-type {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-        }
-        .sat-status {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            font-size: 0.7rem;
-            margin-top: 6px;
-            padding: 2px 8px;
+        .filters::-webkit-scrollbar { display: none; }
+        .filter-chip {
+            padding: 5px 14px;
             border-radius: 20px;
-            background: rgba(46,204,113,0.1);
-            color: var(--green);
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
         }
-        .sat-status.offline {
-            background: rgba(231,76,60,0.1);
-            color: var(--red);
-        }
-        .status-dot-sm {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: var(--green);
-        }
-        .status-dot-sm.offline {
-            background: var(--red);
-        }
-
-        /* Weather Panel */
-        .weather-panel {
-            padding: 16px 20px;
-            border-top: 1px solid var(--border);
-        }
-        .weather-panel h3 {
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            color: var(--text-muted);
-            letter-spacing: 0.06em;
-            margin-bottom: 12px;
-        }
-        .weather-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px;
-        }
-        .weather-cell {
-            background: var(--bg);
-            border-radius: 10px;
-            padding: 12px;
-            text-align: center;
-        }
-        .weather-cell-value {
-            font-size: 1.1rem;
-            font-weight: 700;
+        .filter-chip:hover { border-color: var(--border-active); color: var(--text); }
+        .filter-chip.active {
+            background: var(--accent-dim);
+            border-color: var(--accent);
             color: var(--accent);
         }
-        .weather-cell-label {
-            font-size: 0.7rem;
+
+        /* Sat List */
+        .sat-list { flex: 1; overflow-y: auto; padding: 8px 12px; }
+        .sat-group-label {
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            padding: 12px 8px 6px;
+        }
+        .sat-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.15s;
+            margin-bottom: 2px;
+            border: 1px solid transparent;
+            position: relative;
+        }
+        .sat-item:hover { background: var(--surface-hover); border-color: var(--border); }
+        .sat-item.active {
+            background: var(--accent-dim);
+            border-color: var(--accent);
+        }
+        .sat-item .drag-handle {
+            position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+            opacity: 0; color: var(--text-muted); cursor: grab;
+            font-size: 0.8rem; transition: opacity 0.2s;
+        }
+        .sat-item:hover .drag-handle { opacity: 1; }
+        .sat-icon {
+            width: 40px; height: 40px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.2rem; flex-shrink: 0;
+        }
+        .sat-info { flex: 1; min-width: 0; }
+        .sat-name { font-weight: 600; font-size: 0.88rem; }
+        .sat-meta {
+            font-size: 0.75rem;
             color: var(--text-muted);
             margin-top: 2px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
         }
+        .sat-status-dot {
+            width: 5px; height: 5px; border-radius: 50%;
+            display: inline-block;
+        }
+        .sat-status-dot.online { background: var(--green); box-shadow: 0 0 6px var(--green); }
+        .sat-status-dot.offline { background: var(--red); }
+        .sat-actions {
+            position: absolute; right: 8px; bottom: 8px;
+            opacity: 0; transition: opacity 0.2s;
+        }
+        .sat-item:hover .sat-actions { opacity: 1; }
+        .sat-actions button {
+            background: none; border: none; color: var(--text-muted);
+            cursor: pointer; padding: 2px 6px; font-size: 0.8rem;
+        }
+        .sat-actions button:hover { color: var(--text); }
 
-        /* Toggle button */
-        .sidebar-toggle {
+        /* Context menu */
+        .ctx-menu {
             position: fixed;
-            left: 340px;
-            top: 20px;
-            z-index: 1001;
-            width: 40px;
-            height: 40px;
-            background: var(--card);
+            background: var(--surface);
             border: 1px solid var(--border);
             border-radius: 10px;
+            padding: 6px 0;
+            z-index: 9999;
+            min-width: 160px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            display: none;
+        }
+        .ctx-menu.visible { display: block; }
+        .ctx-menu-item {
+            padding: 8px 16px;
+            font-size: 0.85rem;
             color: var(--text);
             cursor: pointer;
             display: flex;
             align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-            transition: left 0.3s;
+            gap: 8px;
         }
-        .sidebar-toggle.collapsed {
-            left: 20px;
+        .ctx-menu-item:hover { background: var(--surface-hover); }
+        .ctx-menu-item.delete { color: var(--red); }
+        .ctx-sep { border-top: 1px solid var(--border); margin: 4px 0; }
+
+        /* Edit name modal */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+            z-index: 10000; display: none; align-items: center; justify-content: center;
+        }
+        .modal-overlay.visible { display: flex; }
+        .modal {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            width: 360px;
+        }
+        .modal h3 { margin-bottom: 16px; font-size: 1.1rem; }
+        .modal input {
+            width: 100%; padding: 10px 14px;
+            background: var(--bg); border: 1px solid var(--border);
+            border-radius: 8px; color: var(--text);
+            font-size: 0.9rem; margin-bottom: 16px;
+        }
+        .modal input:focus { outline: none; border-color: var(--accent); }
+        .modal-btns { display: flex; gap: 8px; justify-content: flex-end; }
+        .modal-btns button {
+            padding: 8px 16px; border-radius: 8px;
+            font-size: 0.85rem; font-weight: 600; cursor: pointer;
+        }
+        .modal-cancel {
+            background: transparent; border: 1px solid var(--border);
+            color: var(--text);
+        }
+        .modal-save {
+            background: var(--accent); border: none; color: #000;
         }
 
-        /* Main content */
-        .main {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            position: relative;
-        }
+        /* ===== MAIN ===== */
+        .main { flex: 1; position: relative; }
+        #map { width: 100%; height: 100%; background: #0d1117; }
 
-        /* Map */
-        #map {
-            flex: 1;
-            background: #0d1117;
+        /* Toggle */
+        .sidebar-toggle {
+            position: absolute; left: 400px; top: 16px;
+            z-index: 1001; width: 40px; height: 40px;
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 10px; color: var(--text);
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            font-size: 1.1rem; transition: left 0.25s;
         }
-        .leaflet-container {
-            background: #0d1117 !important;
+        .sidebar-toggle.collapsed { left: 16px; }
+
+        /* Top Bar */
+        .top-bar {
+            position: absolute; top: 16px; right: 16px;
+            z-index: 500; display: flex; gap: 6px;
+        }
+        .top-btn {
+            padding: 8px 16px; background: var(--surface);
+            border: 1px solid var(--border); border-radius: 10px;
+            color: var(--text-secondary); font-size: 0.8rem;
+            font-weight: 600; cursor: pointer; transition: all 0.2s;
+        }
+        .top-btn:hover { border-color: var(--border-active); color: var(--text); }
+        .top-btn.active {
+            background: var(--accent-dim); border-color: var(--accent); color: var(--accent);
         }
 
         /* Info Panel */
         .info-panel {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            width: 360px;
-            max-height: 400px;
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 20px;
-            z-index: 500;
-            overflow-y: auto;
-            backdrop-filter: blur(10px);
-            display: none;
+            position: absolute; bottom: 16px; right: 16px;
+            width: 400px; max-height: calc(100vh - 100px);
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 16px; overflow: hidden; z-index: 500;
+            backdrop-filter: blur(12px); display: none; flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
         }
-        .info-panel.visible {
-            display: block;
+        .info-panel.visible { display: flex; }
+        .info-header {
+            padding: 20px; border-bottom: 1px solid var(--border);
+            display: flex; align-items: start; justify-content: space-between;
+            background: linear-gradient(135deg, var(--accent-dim), transparent);
         }
-        .info-panel h2 {
-            font-size: 1.1rem;
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
+        .info-header-content { flex: 1; }
+        .info-header h2 {
+            font-size: 1.2rem; font-weight: 700;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .info-header .subtitle {
+            font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;
         }
         .info-close {
-            position: absolute;
-            top: 12px;
-            right: 12px;
-            background: none;
-            border: none;
-            color: var(--text-muted);
-            cursor: pointer;
-            font-size: 1.2rem;
+            background: none; border: none; color: var(--text-muted);
+            font-size: 1.2rem; cursor: pointer; padding: 0 0 0 12px;
         }
-        .info-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
+        .info-body { overflow-y: auto; padding: 0; }
+        .info-section {
+            padding: 14px 20px;
             border-bottom: 1px solid var(--border);
-            font-size: 0.85rem;
         }
-        .info-row:last-child {
-            border-bottom: none;
+        .info-section:last-child { border-bottom: none; }
+        .info-section-title {
+            font-size: 0.65rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.08em;
+            color: var(--text-muted); margin-bottom: 10px;
         }
-        .info-label {
-            color: var(--text-muted);
+        .info-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
         }
-        .info-value {
-            font-weight: 600;
+        .info-cell {
+            background: var(--bg); border-radius: 8px;
+            padding: 10px 12px;
+        }
+        .info-cell-label {
+            font-size: 0.7rem; color: var(--text-muted);
+            text-transform: uppercase; letter-spacing: 0.05em;
+        }
+        .info-cell-value {
+            font-size: 0.9rem; font-weight: 600; margin-top: 2px;
+            font-family: var(--font-mono);
         }
         .info-desc {
-            margin-top: 12px;
-            font-size: 0.85rem;
-            color: var(--text-muted);
+            font-size: 0.85rem; color: var(--text-secondary);
             line-height: 1.6;
         }
         .info-notes {
-            margin-top: 12px;
+            padding: 14px 20px;
         }
         .info-notes textarea {
-            width: 100%;
-            padding: 10px;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            color: var(--text);
-            font-size: 0.85rem;
-            resize: vertical;
-            min-height: 60px;
+            width: 100%; padding: 10px 12px;
+            background: var(--bg); border: 1px solid var(--border);
+            border-radius: 8px; color: var(--text);
+            font-size: 0.85rem; resize: vertical;
+            min-height: 80px; font-family: var(--font);
         }
-
-        /* Top Bar */
-        .top-bar {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            left: auto;
-            z-index: 500;
-            display: flex;
-            gap: 8px;
+        .info-notes textarea:focus { outline: none; border-color: var(--accent); }
+        .info-tags {
+            display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px;
         }
-        .top-btn {
-            padding: 8px 16px;
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            color: var(--text);
-            font-size: 0.8rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
+        .info-tag {
+            padding: 3px 10px; border-radius: 20px;
+            font-size: 0.7rem; font-weight: 600;
+            background: var(--accent-dim); color: var(--accent);
+            border: 1px solid var(--accent);
         }
-        .top-btn:hover {
-            border-color: var(--accent);
+        .info-bar {
+            height: 4px; border-radius: 2px; background: var(--bg);
+            margin-top: 8px; overflow: hidden;
         }
-        .top-btn.active {
-            background: var(--accent);
-            color: #000;
-            border-color: var(--accent);
+        .info-bar-fill {
+            height: 100%; border-radius: 2px;
+            background: linear-gradient(90deg, var(--accent), var(--purple));
         }
 
         /* Custom popup */
-        .custom-popup {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 12px;
-            color: var(--text);
-            min-width: 200px;
-        }
-        .custom-popup h3 {
-            font-size: 1rem;
-            margin-bottom: 8px;
-        }
-        .custom-popup p {
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            margin-bottom: 4px;
-        }
         .leaflet-popup-content-wrapper {
-            background: var(--card) !important;
+            background: var(--surface) !important;
             border: 1px solid var(--border) !important;
             border-radius: 12px !important;
             color: var(--text) !important;
         }
-        .leaflet-popup-tip {
-            background: var(--card) !important;
-            border: 1px solid var(--border) !important;
-        }
+        .leaflet-popup-tip { background: var(--surface) !important; border: 1px solid var(--border) !important; }
 
         /* Scrollbar */
-        ::-webkit-scrollbar {
-            width: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: var(--bg);
-        }
-        ::-webkit-scrollbar-thumb {
-            background: var(--border);
-            border-radius: 3px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: var(--border-hover);
-        }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--border-active); }
 
         @media (max-width: 768px) {
-            .sidebar {
-                position: absolute;
-                height: 100%;
-            }
-            .info-panel {
-                width: calc(100% - 40px);
-                left: 20px;
-                right: 20px;
-            }
+            .sidebar { position: absolute; height: 100%; }
+            .info-panel { width: calc(100% - 32px); left: 16px; right: 16px; }
         }
     </style>
 </head>
@@ -400,37 +413,26 @@
         <!-- Sidebar -->
         <div class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <h1>🛰️ Earth Tracker</h1>
-                <p>Live satellite tracking + weather</p>
+                <h1><span>🛰️</span> Earth Tracker</h1>
+                <p>Live satellite intelligence dashboard</p>
+                <div class="live-badge"><div class="pulse"></div> Live Data Feed</div>
             </div>
 
             <div class="search-box">
-                <input type="text" id="sat-search" placeholder="Search satellites..." oninput="filterSats()">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="sat-search" placeholder="Search satellites, agencies, types..." oninput="filterSats()">
+            </div>
+
+            <div class="filters" id="filters">
+                <button class="filter-chip active" data-filter="all" onclick="setFilter('all')">All</button>
+                <button class="filter-chip" data-filter="weather" onclick="setFilter('weather')">🌦️ Weather</button>
+                <button class="filter-chip" data-filter="observation" onclick="setFilter('observation')">🌍 Observation</button>
+                <button class="filter-chip" data-filter="communications" onclick="setFilter('communications')">📡 Comms</button>
+                <button class="filter-chip" data-filter="science" onclick="setFilter('science')">🔭 Science</button>
+                <button class="filter-chip" data-filter="active" onclick="setFilter('active')">🟢 Active</button>
             </div>
 
             <div class="sat-list" id="sat-list"></div>
-
-            <div class="weather-panel">
-                <h3>📍 Local Weather</h3>
-                <div class="weather-grid" id="weather-grid">
-                    <div class="weather-cell">
-                        <div class="weather-cell-value" id="w-temp">--</div>
-                        <div class="weather-cell-label">Temp</div>
-                    </div>
-                    <div class="weather-cell">
-                        <div class="weather-cell-value" id="w-hum">--</div>
-                        <div class="weather-cell-label">Humidity</div>
-                    </div>
-                    <div class="weather-cell">
-                        <div class="weather-cell-value" id="w-wind">--</div>
-                        <div class="weather-cell-label">Wind</div>
-                    </div>
-                    <div class="weather-cell">
-                        <div class="weather-cell-value" id="w-cloud">--</div>
-                        <div class="weather-cell-label">Clouds</div>
-                    </div>
-                </div>
-            </div>
         </div>
 
         <!-- Toggle -->
@@ -448,13 +450,38 @@
 
             <!-- Info Panel -->
             <div class="info-panel" id="info-panel">
-                <button class="info-close" onclick="closeInfo()">✕</button>
-                <h2 id="info-title">Satellite Info</h2>
-                <div id="info-content"></div>
-                <div class="info-notes">
-                    <label style="font-size: 0.8rem; color: var(--text-muted);">Notes:</label>
-                    <textarea id="info-notes" placeholder="Add your notes about this satellite..."></textarea>
+                <div class="info-header">
+                    <div class="info-header-content">
+                        <h2 id="info-title">Satellite Info</h2>
+                        <div class="subtitle" id="info-subtitle">--</div>
+                    </div>
+                    <button class="info-close" onclick="closeInfo()">✕</button>
                 </div>
+                <div class="info-body" id="info-body"></div>
+                <div class="info-notes">
+                    <textarea id="info-notes" placeholder="Add your intelligence notes here..." oninput="saveNotes()"></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Context Menu -->
+    <div class="ctx-menu" id="ctx-menu">
+        <div class="ctx-menu-item" onclick="ctxRename()">✏️ Rename</div>
+        <div class="ctx-menu-item" onclick="ctxCopyCoords()">📋 Copy Coordinates</div>
+        <div class="ctx-menu-item" onclick="ctxCenter()">🎯 Center on Map</div>
+        <div class="ctx-sep"></div>
+        <div class="ctx-menu-item delete" onclick="ctxDelete()">🗑️ Hide Satellite</div>
+    </div>
+
+    <!-- Rename Modal -->
+    <div class="modal-overlay" id="rename-modal" onclick="closeRenameModal(event)">
+        <div class="modal" onclick="event.stopPropagation()">
+            <h3>Rename Satellite</h3>
+            <input type="text" id="rename-input" placeholder="Enter new name...">
+            <div class="modal-btns">
+                <button class="modal-cancel" onclick="closeRenameModal()">Cancel</button>
+                <button class="modal-save" onclick="doRename()">Save</button>
             </div>
         </div>
     </div>
@@ -463,348 +490,477 @@
         // ========== SATELLITE DATA ==========
         const satellites = [
             {
-                id: 'goes-16',
-                name: 'GOES-16',
-                type: 'Weather Satellite',
-                agency: 'NOAA / NASA',
-                status: 'active',
-                lat: 0,
-                lon: -75,
-                altitude: '35,786 km',
-                orbit: 'Geostationary',
-                launch: '2016-11-19',
-                desc: 'Primary weather satellite for the Americas. Provides real-time imagery of weather patterns, hurricanes, and severe storms across North and South America.',
-                icon: '🛰️',
-                color: '#00d4aa'
+                id: 'goes-16', name: 'GOES-16', displayName: 'GOES-16',
+                type: 'weather', typeLabel: 'Weather Satellite',
+                agency: 'NOAA / NASA', status: 'active',
+                lat: 0, lon: -75,
+                altitude: '35,786 km', orbit: 'Geostationary',
+                launch: '2016-11-19', lifespan: '15 years',
+                desc: 'Primary weather satellite for the Americas. Provides real-time imagery of weather patterns, hurricanes, and severe storms across North and South America. Operates at 75°W.',
+                icon: '🛰️', color: '#22d3ee',
+                coverage: 'Western Hemisphere', resolution: '0.5 km - 2 km',
+                instruments: 'ABI, GLM, SEISS, SUVI, EXIS, MAG',
+                power: '4.5 kW solar', mass: '2,800 kg',
+                dataRate: '50 Mbps', revisit: '10-15 min'
             },
             {
-                id: 'goes-18',
-                name: 'GOES-18',
-                type: 'Weather Satellite',
-                agency: 'NOAA / NASA',
-                status: 'active',
-                lat: 0,
-                lon: -137,
-                altitude: '35,786 km',
-                orbit: 'Geostationary',
-                launch: '2022-03-01',
-                desc: 'West coast weather satellite monitoring Pacific Ocean conditions, Alaska, and Hawaii. Backup for GOES-17.',
-                icon: '🛰️',
-                color: '#00d4aa'
+                id: 'goes-18', name: 'GOES-18', displayName: 'GOES-18',
+                type: 'weather', typeLabel: 'Weather Satellite',
+                agency: 'NOAA / NASA', status: 'active',
+                lat: 0, lon: -137,
+                altitude: '35,786 km', orbit: 'Geostationary',
+                launch: '2022-03-01', lifespan: '15 years',
+                desc: 'West coast weather satellite monitoring Pacific Ocean conditions, Alaska, and Hawaii. Backup for GOES-17. Positioned at 137°W.',
+                icon: '🛰️', color: '#22d3ee',
+                coverage: 'Pacific / Alaska / Hawaii', resolution: '0.5 km - 2 km',
+                instruments: 'ABI, GLM, SEISS, SUVI, EXIS, MAG',
+                power: '4.5 kW solar', mass: '2,800 kg',
+                dataRate: '50 Mbps', revisit: '10-15 min'
             },
             {
-                id: 'himawari-9',
-                name: 'Himawari-9',
-                type: 'Weather Satellite',
-                agency: 'JMA (Japan)',
-                status: 'active',
-                lat: 0,
-                lon: 140,
-                altitude: '35,786 km',
-                orbit: 'Geostationary',
-                launch: '2016-11-02',
-                desc: 'Japan\'s primary weather satellite covering East Asia, Australia, and the Pacific. Provides 10-minute full-disk imagery.',
-                icon: '🛰️',
-                color: '#00d4aa'
+                id: 'himawari-9', name: 'Himawari-9', displayName: 'Himawari-9',
+                type: 'weather', typeLabel: 'Weather Satellite',
+                agency: 'JMA (Japan)', status: 'active',
+                lat: 0, lon: 140,
+                altitude: '35,786 km', orbit: 'Geostationary',
+                launch: '2016-11-02', lifespan: '15 years',
+                desc: 'Japan\'s primary weather satellite covering East Asia, Australia, and the Pacific. Provides 10-minute full-disk imagery with 16 spectral bands.',
+                icon: '🛰️', color: '#22d3ee',
+                coverage: 'East Asia / Australia / Pacific', resolution: '0.5 km - 2 km',
+                instruments: 'AHI, SEA, DCS', power: '4.5 kW solar',
+                mass: '3,500 kg', dataRate: '100 Mbps', revisit: '10 min'
             },
             {
-                id: 'meteosat-11',
-                name: 'Meteosat-11',
-                type: 'Weather Satellite',
-                agency: 'EUMETSAT',
-                status: 'active',
-                lat: 0,
-                lon: 0,
-                altitude: '35,786 km',
-                orbit: 'Geostationary',
-                launch: '2015-07-15',
-                desc: 'European weather satellite covering Europe, Africa, and the Atlantic Ocean. Part of the Meteosat Second Generation.',
-                icon: '🛰️',
-                color: '#00d4aa'
+                id: 'meteosat-11', name: 'Meteosat-11', displayName: 'Meteosat-11',
+                type: 'weather', typeLabel: 'Weather Satellite',
+                agency: 'EUMETSAT', status: 'active',
+                lat: 0, lon: 0,
+                altitude: '35,786 km', orbit: 'Geostationary',
+                launch: '2015-07-15', lifespan: '12 years',
+                desc: 'European weather satellite covering Europe, Africa, and the Atlantic Ocean. Part of the Meteosat Second Generation at 0° longitude.',
+                icon: '🛰️', color: '#22d3ee',
+                coverage: 'Europe / Africa / Atlantic', resolution: '1 km - 3 km',
+                instruments: 'SEVIRI, GERB', power: '3.5 kW solar',
+                mass: '2,000 kg', dataRate: '20 Mbps', revisit: '15 min'
             },
             {
-                id: 'landsat-9',
-                name: 'Landsat-9',
-                type: 'Earth Observation',
-                agency: 'NASA / USGS',
-                status: 'active',
-                lat: 51.6,
-                lon: -80,
-                altitude: '705 km',
-                orbit: 'Sun-synchronous',
-                launch: '2021-09-27',
-                desc: 'Provides high-resolution multispectral imagery for agriculture, forestry, geology, and environmental monitoring.',
-                icon: '🌍',
-                color: '#818cf8'
+                id: 'landsat-9', name: 'Landsat-9', displayName: 'Landsat-9',
+                type: 'observation', typeLabel: 'Earth Observation',
+                agency: 'NASA / USGS', status: 'active',
+                lat: 51.6, lon: -80,
+                altitude: '705 km', orbit: 'Sun-synchronous',
+                launch: '2021-09-27', lifespan: '5+ years',
+                desc: 'Provides high-resolution multispectral imagery for agriculture, forestry, geology, and environmental monitoring. Revisits every 16 days.',
+                icon: '🌍', color: '#4ade80',
+                coverage: 'Global', resolution: '15 m - 100 m',
+                instruments: 'OLI-2, TIRS-2', power: '1.5 kW solar',
+                mass: '2,700 kg', dataRate: '1.5 Gbps', revisit: '16 days'
             },
             {
-                id: 'sentinel-2a',
-                name: 'Sentinel-2A',
-                type: 'Earth Observation',
-                agency: 'ESA',
-                status: 'active',
-                lat: -10,
-                lon: 20,
-                altitude: '786 km',
-                orbit: 'Sun-synchronous',
-                launch: '2015-06-23',
-                desc: 'European optical imaging satellite for land monitoring, emergency response, and security applications.',
-                icon: '🌍',
-                color: '#818cf8'
+                id: 'sentinel-2a', name: 'Sentinel-2A', displayName: 'Sentinel-2A',
+                type: 'observation', typeLabel: 'Earth Observation',
+                agency: 'ESA', status: 'active',
+                lat: -10, lon: 20,
+                altitude: '786 km', orbit: 'Sun-synchronous',
+                launch: '2015-06-23', lifespan: '7 years',
+                desc: 'European optical imaging satellite for land monitoring, emergency response, and security applications. 13 spectral bands.',
+                icon: '🌍', color: '#4ade80',
+                coverage: 'Global', resolution: '10 m - 60 m',
+                instruments: 'MSI', power: '1.5 kW solar',
+                mass: '1,100 kg', dataRate: '450 Mbps', revisit: '5 days'
             },
             {
-                id: 'iss',
-                name: 'ISS',
-                type: 'Space Station',
-                agency: 'NASA / Roscosmos / ESA / JAXA / CSA',
-                status: 'active',
-                lat: 51.6,
-                lon: -50,
-                altitude: '408 km',
-                orbit: 'Low Earth',
-                launch: '1998-11-20',
-                desc: 'International Space Station. Largest human-made object in space. Continuously occupied since 2000.',
-                icon: '🚀',
-                color: '#ff6b35'
+                id: 'iss', name: 'ISS', displayName: 'International Space Station',
+                type: 'science', typeLabel: 'Space Station',
+                agency: 'NASA / ESA / JAXA / CSA / Roscosmos', status: 'active',
+                lat: 51.6, lon: -50,
+                altitude: '408 km', orbit: 'Low Earth',
+                launch: '1998-11-20', lifespan: 'Extended to 2028+',
+                desc: 'Largest human-made object in space. Continuously occupied since 2000. Serves as microgravity laboratory for science research.',
+                icon: '🚀', color: '#fb923c',
+                coverage: 'Global (51.6° inclination)', resolution: 'N/A',
+                instruments: 'External payloads, Canadarm2', power: '80-120 kW solar',
+                mass: '420,000 kg', dataRate: '600 Mbps', revisit: '90 min orbit'
             },
             {
-                id: 'hubble',
-                name: 'Hubble Space Telescope',
-                type: 'Space Telescope',
-                agency: 'NASA / ESA',
-                status: 'active',
-                lat: 28.5,
-                lon: -76,
-                altitude: '540 km',
-                orbit: 'Low Earth',
-                launch: '1990-04-24',
-                desc: 'Space telescope providing high-resolution optical and ultraviolet imagery of distant galaxies, nebulae, and planets.',
-                icon: '🔭',
-                color: '#c084fc'
+                id: 'hubble', name: 'Hubble Space Telescope', displayName: 'Hubble Space Telescope',
+                type: 'science', typeLabel: 'Space Telescope',
+                agency: 'NASA / ESA', status: 'active',
+                lat: 28.5, lon: -76,
+                altitude: '540 km', orbit: 'Low Earth',
+                launch: '1990-04-24', lifespan: '35+ years',
+                desc: 'Space telescope providing high-resolution optical and ultraviolet imagery of distant galaxies, nebulae, and planets. Has made 1.5M+ observations.',
+                icon: '🔭', color: '#c084fc',
+                coverage: 'Deep Space', resolution: '0.05 arcseconds',
+                instruments: 'WFC3, ACS, STIS, COS, FGS', power: '2.8 kW solar',
+                mass: '11,000 kg', dataRate: '1 Mbps', revisit: '97 min orbit'
             },
             {
-                id: 'jwst',
-                name: 'James Webb Space Telescope',
-                type: 'Space Telescope',
-                agency: 'NASA / ESA / CSA',
-                status: 'active',
-                lat: 0,
-                lon: 0,
-                altitude: '1,500,000 km',
-                orbit: 'L2 Lagrange Point',
-                launch: '2021-12-25',
-                desc: 'Most powerful space telescope ever built. Observes infrared light from the first stars and galaxies formed after the Big Bang.',
-                icon: '🔭',
-                color: '#c084fc'
+                id: 'jwst', name: 'James Webb Space Telescope', displayName: 'James Webb Space Telescope',
+                type: 'science', typeLabel: 'Space Telescope',
+                agency: 'NASA / ESA / CSA', status: 'active',
+                lat: 0, lon: 0,
+                altitude: '1,500,000 km', orbit: 'L2 Lagrange Point',
+                launch: '2021-12-25', lifespan: '10+ years',
+                desc: 'Most powerful space telescope ever built. Observes infrared light from the first stars and galaxies formed after the Big Bang. Operates at L2 point.',
+                icon: '🔭', color: '#c084fc',
+                coverage: 'Deep Space / Infrared', resolution: '0.1 arcseconds',
+                instruments: 'NIRCam, NIRSpec, MIRI, FGS', power: '2 kW solar',
+                mass: '6,500 kg', dataRate: '28 Mbps', revisit: 'N/A (Stationary)'
             },
             {
-                id: 'starlink-constellation',
-                name: 'Starlink Constellation',
-                type: 'Communications',
-                agency: 'SpaceX',
-                status: 'active',
-                lat: 53,
-                lon: -100,
-                altitude: '550 km',
-                orbit: 'Low Earth',
-                launch: '2019-05-24',
-                desc: 'Global satellite internet constellation with 5,000+ active satellites providing broadband internet access worldwide.',
-                icon: '📡',
-                color: '#ff9f43'
+                id: 'starlink', name: 'Starlink Constellation', displayName: 'Starlink Constellation',
+                type: 'communications', typeLabel: 'Communications Network',
+                agency: 'SpaceX', status: 'active',
+                lat: 53, lon: -100,
+                altitude: '550 km', orbit: 'Low Earth',
+                launch: '2019-05-24', lifespan: '5-7 years per satellite',
+                desc: 'Global satellite internet constellation with 5,000+ active satellites providing broadband internet access worldwide. Largest satellite constellation ever deployed.',
+                icon: '📡', color: '#facc15',
+                coverage: 'Global (latitudes ±53°)', resolution: 'N/A',
+                instruments: 'Phased array antennas, laser links', power: '2-3 kW solar',
+                mass: '~300 kg each', dataRate: 'Tbps combined', revisit: 'Continuous'
             }
         ];
 
-        // ========== MAP INIT ==========
-        const map = L.map('map', {
-            center: [25, 0],
-            zoom: 2,
-            zoomControl: false,
-            attributionControl: false
+        // Load saved names
+        satellites.forEach(sat => {
+            const saved = localStorage.getItem(`name-${sat.id}`);
+            if (saved) sat.displayName = saved;
         });
 
-        // Dark tiles
+        // ========== MAP ==========
+        const map = L.map('map', {
+            center: [25, 0], zoom: 2,
+            zoomControl: false, attributionControl: false
+        });
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-            subdomains: 'abcd',
-            maxZoom: 19
+            attribution: '&copy; CARTO',
+            subdomains: 'abcd', maxZoom: 19
         }).addTo(map);
-
         L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-        // ========== MARKERS ==========
-        const markers = {};
-        let activeSat = null;
+        // ========== STATE ==========
+        let markers = {}, activeSat = null, currentFilter = 'all', currentLayer = 'satellite';
+        let goesOverlay = null, ctxTarget = null;
 
+        // ========== MARKERS ==========
         function initMarkers() {
             satellites.forEach(sat => {
                 const marker = L.circleMarker([sat.lat, sat.lon], {
-                    radius: 10,
-                    fillColor: sat.color,
-                    color: sat.color,
-                    weight: 2,
-                    opacity: 0.8,
-                    fillOpacity: 0.4
+                    radius: sat.id === 'starlink' ? 14 : 12,
+                    fillColor: sat.color, color: sat.color,
+                    weight: 2, opacity: 0.9, fillOpacity: 0.35
                 }).addTo(map);
 
-                const popup = L.popup({ offset: [0, -10] })
-                    .setContent(`
-                        <div class="custom-popup">
-                            <h3>${sat.icon} ${sat.name}</h3>
-                            <p>${sat.type} — ${sat.agency}</p>
-                            <p>Orbit: ${sat.orbit}</p>
-                            <p>Status: ${sat.status === 'active' ? '🟢 Active' : '🔴 Offline'}</p>
-                            <p style="margin-top:8px"><a href="#" onclick="showSatInfo('${sat.id}'); return false;">View Details →</a></p>
-                        </div>
-                    `);
+                marker.bindPopup(`
+                    <div style="min-width:200px">
+                        <h3 style="margin:0 0 6px;font-size:1rem">${sat.icon} ${sat.displayName}</h3>
+                        <p style="margin:0 0 4px;font-size:0.8rem;color:#9ca3af">${sat.typeLabel} — ${sat.agency}</p>
+                        <p style="margin:0 0 4px;font-size:0.8rem;color:#6b7280">Orbit: ${sat.orbit}</p>
+                        <p style="margin:0;font-size:0.8rem">Status: <span style="color:${sat.status==='active'?'#4ade80':'#f87171'}">${sat.status.toUpperCase()}</span></p>
+                        <p style="margin:8px 0 0;font-size:0.8rem"><a href="#" onclick="showSatInfo('${sat.id}');return false;" style="color:#22d3ee">View Details →</a></p>
+                    </div>
+                `, { offset: [0, -10] });
 
-                marker.bindPopup(popup);
                 marker.on('click', () => showSatInfo(sat.id));
-
                 markers[sat.id] = marker;
             });
         }
 
-        // ========== SIDEBAR LIST ==========
-        function renderSatList(filter = '') {
+        // ========== SIDEBAR ==========
+        function renderSatList() {
             const list = document.getElementById('sat-list');
+            const search = document.getElementById('sat-search').value.toLowerCase();
             list.innerHTML = '';
 
-            satellites
-                .filter(s => s.name.toLowerCase().includes(filter.toLowerCase()) ||
-                         s.type.toLowerCase().includes(filter.toLowerCase()) ||
-                         s.agency.toLowerCase().includes(filter.toLowerCase()))
-                .forEach(sat => {
+            const filtered = satellites.filter(s => {
+                const matchesSearch = s.displayName.toLowerCase().includes(search) ||
+                    s.agency.toLowerCase().includes(search) ||
+                    s.typeLabel.toLowerCase().includes(search);
+                const matchesFilter = currentFilter === 'all' ||
+                    (currentFilter === 'active' ? s.status === 'active' : s.type === currentFilter);
+                return matchesSearch && matchesFilter;
+            });
+
+            // Group by type
+            const groups = {};
+            filtered.forEach(s => {
+                if (!groups[s.type]) groups[s.type] = [];
+                groups[s.type].push(s);
+            });
+
+            const groupLabels = {
+                weather: '🌦️ Weather Satellites',
+                observation: '🌍 Earth Observation',
+                science: '🔭 Science & Telescopes',
+                communications: '📡 Communications'
+            };
+
+            Object.entries(groups).forEach(([type, items]) => {
+                const label = document.createElement('div');
+                label.className = 'sat-group-label';
+                label.textContent = groupLabels[type] || type;
+                list.appendChild(label);
+
+                items.forEach(sat => {
                     const item = document.createElement('div');
                     item.className = 'sat-item' + (activeSat === sat.id ? ' active' : '');
-                    item.onclick = () => {
+                    item.dataset.id = sat.id;
+                    item.onclick = (e) => {
+                        if (e.button !== 0) return;
                         map.setView([sat.lat, sat.lon], 4);
                         showSatInfo(sat.id);
                     };
+                    item.oncontextmenu = (e) => showCtxMenu(e, sat.id);
+
+                    const uptime = Math.floor(Math.random() * 99) + 1;
 
                     item.innerHTML = `
-                        <div class="sat-item-header">
-                            <div class="sat-icon" style="background: ${sat.color}20">${sat.icon}</div>
-                            <div>
-                                <div class="sat-name">${sat.name}</div>
-                                <div class="sat-type">${sat.type} · ${sat.agency}</div>
+                        <div class="sat-icon" style="background:${sat.color}20">${sat.icon}</div>
+                        <div class="sat-info">
+                            <div class="sat-name">${sat.displayName}</div>
+                            <div class="sat-meta">
+                                <span class="sat-status-dot ${sat.status === 'active' ? 'online' : 'offline'}"></span>
+                                ${sat.agency} · ${sat.orbit}
                             </div>
                         </div>
-                        <div class="sat-status ${sat.status}">
-                            <span class="status-dot-sm ${sat.status}"></span>
-                            ${sat.status.toUpperCase()}
+                        <div class="drag-handle">⋮⋮</div>
+                        <div class="sat-actions">
+                            <button onclick="event.stopPropagation();editName('${sat.id}')">✏️</button>
                         </div>
                     `;
-
                     list.appendChild(item);
                 });
+            });
         }
 
-        function filterSats() {
-            const val = document.getElementById('sat-search').value;
-            renderSatList(val);
+        function filterSats() { renderSatList(); }
+        function setFilter(filter) {
+            currentFilter = filter;
+            document.querySelectorAll('.filter-chip').forEach(c => c.classList.toggle('active', c.dataset.filter === filter));
+            renderSatList();
         }
 
         // ========== INFO PANEL ==========
         function showSatInfo(id) {
             const sat = satellites.find(s => s.id === id);
             if (!sat) return;
-
             activeSat = id;
-            renderSatList(document.getElementById('sat-search').value);
+            renderSatList();
 
-            const panel = document.getElementById('info-panel');
-            const content = document.getElementById('info-content');
+            document.getElementById('info-panel').classList.add('visible');
+            document.getElementById('info-title').innerHTML = `${sat.icon} ${sat.displayName}`;
+            document.getElementById('info-subtitle').textContent = `${sat.typeLabel} · ${sat.agency}`;
 
-            content.innerHTML = `
-                <div class="info-row"><span class="info-label">Agency</span><span class="info-value">${sat.agency}</span></div>
-                <div class="info-row"><span class="info-label">Type</span><span class="info-value">${sat.type}</span></div>
-                <div class="info-row"><span class="info-label">Orbit</span><span class="info-value">${sat.orbit}</span></div>
-                <div class="info-row"><span class="info-label">Altitude</span><span class="info-value">${sat.altitude}</span></div>
-                <div class="info-row"><span class="info-label">Launch Date</span><span class="info-value">${sat.launch}</span></div>
-                <div class="info-row"><span class="info-label">Coordinates</span><span class="info-value">${sat.lat}°, ${sat.lon}°</span></div>
-                <div class="info-row"><span class="info-label">Status</span><span class="info-value" style="color:${sat.status==='active'?'var(--green)':'var(--red)'}`}>${sat.status.toUpperCase()}</span></div>
-                <div class="info-desc">${sat.desc}</div>
+            const body = document.getElementById('info-body');
+            body.innerHTML = `
+                <div class="info-section">
+                    <div class="info-section-title">Overview</div>
+                    <div class="info-desc">${sat.desc}</div>
+                    <div class="info-tags">
+                        <span class="info-tag">${sat.orbit}</span>
+                        <span class="info-tag">${sat.coverage}</span>
+                        <span class="info-tag">${sat.revisit}</span>
+                    </div>
+                </div>
+                <div class="info-section">
+                    <div class="info-section-title">Specifications</div>
+                    <div class="info-grid">
+                        <div class="info-cell">
+                            <div class="info-cell-label">Altitude</div>
+                            <div class="info-cell-value">${sat.altitude}</div>
+                        </div>
+                        <div class="info-cell">
+                            <div class="info-cell-label">Orbit Type</div>
+                            <div class="info-cell-value">${sat.orbit}</div>
+                        </div>
+                        <div class="info-cell">
+                            <div class="info-cell-label">Launch Date</div>
+                            <div class="info-cell-value">${sat.launch}</div>
+                        </div>
+                        <div class="info-cell">
+                            <div class="info-cell-label">Lifespan</div>
+                            <div class="info-cell-value">${sat.lifespan}</div>
+                        </div>
+                        <div class="info-cell">
+                            <div class="info-cell-label">Mass</div>
+                            <div class="info-cell-value">${sat.mass}</div>
+                        </div>
+                        <div class="info-cell">
+                            <div class="info-cell-label">Power</div>
+                            <div class="info-cell-value">${sat.power}</div>
+                        </div>
+                        <div class="info-cell">
+                            <div class="info-cell-label">Data Rate</div>
+                            <div class="info-cell-value">${sat.dataRate}</div>
+                        </div>
+                        <div class="info-cell">
+                            <div class="info-cell-label">Resolution</div>
+                            <div class="info-cell-value">${sat.resolution}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="info-section">
+                    <div class="info-section-title">Instruments</div>
+                    <div class="info-desc">${sat.instruments}</div>
+                </div>
+                <div class="info-section">
+                    <div class="info-section-title">Position</div>
+                    <div class="info-grid">
+                        <div class="info-cell">
+                            <div class="info-cell-label">Latitude</div>
+                            <div class="info-cell-value">${sat.lat}°</div>
+                        </div>
+                        <div class="info-cell">
+                            <div class="info-cell-label">Longitude</div>
+                            <div class="info-cell-value">${sat.lon}°</div>
+                        </div>
+                    </div>
+                </div>
             `;
 
-            document.getElementById('info-title').innerHTML = `${sat.icon} ${sat.name}`;
-            panel.classList.add('visible');
-
-            // Load saved notes
-            const notes = localStorage.getItem(`notes-${sat.id}`) || '';
-            document.getElementById('info-notes').value = notes;
+            document.getElementById('info-notes').value = localStorage.getItem(`notes-${sat.id}`) || '';
         }
 
         function closeInfo() {
             document.getElementById('info-panel').classList.remove('visible');
             activeSat = null;
-            renderSatList(document.getElementById('sat-search').value);
+            renderSatList();
         }
 
-        // Save notes on input
-        document.getElementById('info-notes').addEventListener('input', function() {
+        function saveNotes() {
             if (activeSat) {
-                localStorage.setItem(`notes-${activeSat}`, this.value);
-            }
-        });
-
-        // ========== WEATHER ==========
-        async function updateWeather() {
-            try {
-                const response = await fetch(
-                    'https://api.open-meteo.com/v1/forecast?latitude=26.0&longitude=-97.5&current=temperature_2m,relative_humidity_2m,precipitation,cloud_cover,wind_speed_10m&timezone=auto'
-                );
-                const data = await response.json();
-                const c = data.current;
-
-                document.getElementById('w-temp').textContent = `${c.temperature_2m}°C`;
-                document.getElementById('w-hum').textContent = `${c.relative_humidity_2m}%`;
-                document.getElementById('w-wind').textContent = `${c.wind_speed_10m} km/h`;
-                document.getElementById('w-cloud').textContent = `${c.cloud_cover}%`;
-            } catch (e) {
-                console.log('Weather fetch failed:', e);
+                localStorage.setItem(`notes-${activeSat}`, document.getElementById('info-notes').value);
             }
         }
+
+        // ========== CONTEXT MENU ==========
+        function showCtxMenu(e, id) {
+            e.preventDefault();
+            ctxTarget = id;
+            const menu = document.getElementById('ctx-menu');
+            menu.style.left = e.clientX + 'px';
+            menu.style.top = e.clientY + 'px';
+            menu.classList.add('visible');
+        }
+
+        function ctxRename() {
+            if (ctxTarget) editName(ctxTarget);
+            hideCtxMenu();
+        }
+        function ctxCopyCoords() {
+            if (ctxTarget) {
+                const sat = satellites.find(s => s.id === ctxTarget);
+                navigator.clipboard.writeText(`${sat.lat}, ${sat.lon}`);
+            }
+            hideCtxMenu();
+        }
+        function ctxCenter() {
+            if (ctxTarget) {
+                const sat = satellites.find(s => s.id === ctxTarget);
+                map.setView([sat.lat, sat.lon], 5);
+            }
+            hideCtxMenu();
+        }
+        function ctxDelete() {
+            if (ctxTarget) {
+                const sat = satellites.find(s => s.id === ctxTarget);
+                sat.hidden = true;
+                if (markers[ctxTarget]) {
+                    map.removeLayer(markers[ctxTarget]);
+                    delete markers[ctxTarget];
+                }
+                renderSatList();
+            }
+            hideCtxMenu();
+        }
+        function hideCtxMenu() { document.getElementById('ctx-menu').classList.remove('visible'); }
+
+        // ========== RENAME ==========
+        function editName(id) {
+            ctxTarget = id;
+            const sat = satellites.find(s => s.id === id);
+            document.getElementById('rename-input').value = sat.displayName;
+            document.getElementById('rename-modal').classList.add('visible');
+            document.getElementById('rename-input').focus();
+        }
+
+        function doRename() {
+            if (!ctxTarget) return;
+            const newName = document.getElementById('rename-input').value.trim();
+            if (newName) {
+                const sat = satellites.find(s => s.id === ctxTarget);
+                sat.displayName = newName;
+                localStorage.setItem(`name-${ctxTarget}`, newName);
+                renderSatList();
+                if (activeSat === ctxTarget) showSatInfo(ctxTarget);
+            }
+            closeRenameModal();
+        }
+
+        function closeRenameModal(e) {
+            if (e && e.target !== e.currentTarget) return;
+            document.getElementById('rename-modal').classList.remove('visible');
+            ctxTarget = null;
+        }
+
+        document.getElementById('rename-input').addEventListener('keydown', e => {
+            if (e.key === 'Enter') doRename();
+            if (e.key === 'Escape') closeRenameModal();
+        });
 
         // ========== SIDEBAR TOGGLE ==========
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
             const btn = document.getElementById('toggle-btn');
-            sidebar.classList.toggle('collapsed');
+            sidebar.classList.toggle('hidden');
             btn.classList.toggle('collapsed');
         }
 
-        // ========== LAYER SWITCHING ==========
-        let currentLayer = 'satellite';
-        let goesOverlay = null;
-
+        // ========== LAYERS ==========
         function setLayer(layer) {
             currentLayer = layer;
-
             document.querySelectorAll('.top-btn').forEach(b => b.classList.remove('active'));
             document.getElementById(`btn-${layer}`).classList.add('active');
 
-            // Remove GOES overlay if exists
-            if (goesOverlay) {
-                map.removeLayer(goesOverlay);
-                goesOverlay = null;
-            }
+            if (goesOverlay) { map.removeLayer(goesOverlay); goesOverlay = null; }
 
             if (layer === 'goes') {
-                // Add GOES-16 imagery as overlay
                 goesOverlay = L.imageOverlay(
                     'https://cdn.star.nesdis.noaa.gov/GOES16/ABI/FD/GEOCOLOR/1808x1808.jpg',
-                    [[-60, -160], [60, -20]],
-                    { opacity: 0.7 }
+                    [[-60, -160], [60, -20]], { opacity: 0.7 }
                 ).addTo(map);
                 map.setView([0, -90], 2);
             } else if (layer === 'weather') {
-                // Add weather tile layer
                 goesOverlay = L.tileLayer(
                     'https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png?appid=demo',
-                    { opacity: 0.6 }
+                    { opacity: 0.5 }
                 ).addTo(map);
             }
         }
+
+        // ========== WEATHER ==========
+        async function updateWeather() {
+            try {
+                const res = await fetch(
+                    'https://api.open-meteo.com/v1/forecast?latitude=26.0&longitude=-97.5&current=temperature_2m,relative_humidity_2m,cloud_cover,wind_speed_10m&timezone=auto'
+                );
+                const data = await res.json();
+                const c = data.current;
+                document.getElementById('w-temp').textContent = c.temperature_2m + '°C';
+                document.getElementById('w-hum').textContent = c.relative_humidity_2m + '%';
+                document.getElementById('w-wind').textContent = c.wind_speed_10m + ' km/h';
+                document.getElementById('w-cloud').textContent = c.cloud_cover + '%';
+            } catch (e) { console.log('Weather error:', e); }
+        }
+
+        // ========== GLOBAL CLICK ==========
+        document.addEventListener('click', e => {
+            if (!e.target.closest('.ctx-menu') && !e.target.closest('.sat-item')) {
+                hideCtxMenu();
+            }
+        });
 
         // ========== INIT ==========
         initMarkers();
