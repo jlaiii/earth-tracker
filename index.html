@@ -52,6 +52,8 @@
             transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .sidebar.hidden { transform: translateX(-100%); position: absolute; }
+        .sidebar.mobile-hidden { transform: translateX(-100%); }
+        .sidebar.mobile-visible { transform: translateX(0); position: fixed; height: 100vh; width: 85vw; max-width: 380px; }
         
         .sidebar-header {
             padding: 20px;
@@ -403,8 +405,62 @@
         ::-webkit-scrollbar-thumb:hover { background: var(--border-active); }
 
         @media (max-width: 768px) {
-            .sidebar { position: absolute; height: 100%; }
-            .info-panel { width: calc(100% - 32px); left: 16px; right: 16px; }
+            .sidebar {
+                position: fixed;
+                height: 100vh;
+                width: 85vw;
+                max-width: 380px;
+            }
+            .sidebar-toggle {
+                left: 16px !important;
+                top: 16px;
+                z-index: 1002;
+                width: 44px;
+                height: 44px;
+                background: var(--surface);
+                border: 1px solid var(--border);
+                border-radius: 12px;
+            }
+            .sidebar-toggle.collapsed { left: 16px !important; }
+            .top-bar {
+                top: auto;
+                bottom: 16px;
+                right: 50%;
+                transform: translateX(50%);
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 4px;
+            }
+            .top-btn {
+                padding: 8px 14px;
+                font-size: 0.75rem;
+            }
+            .info-panel {
+                width: calc(100% - 32px);
+                left: 16px;
+                right: 16px;
+                bottom: 70px;
+                max-height: 55vh;
+            }
+            .info-header h2 { font-size: 1rem; }
+            .info-grid { grid-template-columns: 1fr; }
+            .sat-list { padding: 4px 8px; }
+            .sat-item { padding: 10px 12px; }
+            .sat-icon { width: 36px; height: 36px; font-size: 1rem; }
+            .sat-name { font-size: 0.85rem; }
+            .filters { padding: 8px 12px; }
+            .filter-chip { padding: 4px 10px; font-size: 0.7rem; }
+            .search-box { padding: 8px 12px; }
+            .sidebar-header { padding: 16px; }
+            .sidebar-header h1 { font-size: 1.1rem; }
+            .weather-panel { padding: 12px; }
+            .weather-cell { padding: 8px; }
+            .weather-cell-value { font-size: 0.95rem; }
+            .modal { width: calc(100vw - 40px); margin: 20px; }
+            .ctx-menu { min-width: 140px; }
+            .ctx-menu-item { padding: 10px 14px; font-size: 0.85rem; }
+            body { overflow: hidden; }
+            #map { height: 100vh; }
         }
     </style>
 </head>
@@ -914,7 +970,18 @@
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
             const btn = document.getElementById('toggle-btn');
-            sidebar.classList.toggle('hidden');
+            
+            if (isMobile()) {
+                if (sidebar.classList.contains('mobile-visible')) {
+                    sidebar.classList.remove('mobile-visible');
+                    sidebar.classList.add('mobile-hidden');
+                } else {
+                    sidebar.classList.remove('mobile-hidden');
+                    sidebar.classList.add('mobile-visible');
+                }
+            } else {
+                sidebar.classList.toggle('hidden');
+            }
             btn.classList.toggle('collapsed');
         }
 
@@ -962,11 +1029,45 @@
             }
         });
 
+        // ========== MOBILE DETECT ==========
+        function isMobile() { return window.innerWidth <= 768; }
+        
+        function handleResize() {
+            if (isMobile()) {
+                document.getElementById('sidebar').classList.add('mobile-hidden');
+            } else {
+                document.getElementById('sidebar').classList.remove('mobile-hidden', 'mobile-visible');
+            }
+        }
+        
+        window.addEventListener('resize', handleResize);
+        
+        // Touch swipe for sidebar
+        let touchStartX = 0;
+        document.addEventListener('touchstart', e => {
+            touchStartX = e.touches[0].clientX;
+        });
+        document.addEventListener('touchend', e => {
+            const touchEndX = e.changedTouches[0].clientX;
+            const diff = touchEndX - touchStartX;
+            const sidebar = document.getElementById('sidebar');
+            if (isMobile()) {
+                if (diff > 80 && touchStartX < 50) {
+                    sidebar.classList.remove('mobile-hidden');
+                    sidebar.classList.add('mobile-visible');
+                } else if (diff < -80) {
+                    sidebar.classList.remove('mobile-visible');
+                    sidebar.classList.add('mobile-hidden');
+                }
+            }
+        });
+
         // ========== INIT ==========
         initMarkers();
         renderSatList();
         updateWeather();
         setInterval(updateWeather, 300000);
+        handleResize();
     </script>
 </body>
 </html>
