@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Earth Tracker - Satellite + Weather Data</title>
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --card: #111118;
+            --border: #1e1e2e;
+            --text: #e2e2ea;
+            --text-muted: #6b6b7b;
+            --accent: #00d4aa;
+            --accent2: #ff6b35;
+            --green: #2ecc71;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.5;
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        
+        header {
+            text-align: center;
+            padding: 40px 0 30px;
+        }
+        h1 {
+            font-size: 2rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle {
+            color: var(--text-muted);
+            margin-top: 8px;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+        }
+        .card h2 {
+            font-size: 1rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 16px;
+        }
+        
+        .satellite-img {
+            width: 100%;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+        
+        .weather-data {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+        .weather-item {
+            background: rgba(255,255,255,0.03);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+        }
+        .weather-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent);
+        }
+        .weather-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+        
+        .status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.85rem;
+            color: var(--green);
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--green);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .log {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 16px;
+            font-family: 'SF Mono', monospace;
+            font-size: 0.8rem;
+            color: #8b949e;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .log-entry {
+            margin-bottom: 4px;
+        }
+        .log-time {
+            color: #58a6ff;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 30px 0;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+        
+        @media (max-width: 768px) {
+            .grid { grid-template-columns: 1fr; }
+            .weather-data { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🛰️ Live Earth Tracker</h1>
+            <p class="subtitle">Free public satellite + weather data — no API key needed</p>
+            <div class="status" style="margin-top: 12px;">
+                <span class="status-dot"></span>
+                <span>Live data feed active</span>
+            </div>
+        </header>
+        
+        <div class="grid">
+            <div class="card">
+                <h2>🌍 GOES-16 Satellite (Latest)</h2>
+                <img id="satellite-img" class="satellite-img" src="" alt="GOES-16 satellite imagery">
+                <p style="margin-top: 12px; font-size: 0.85rem; color: var(--text-muted);">
+                    Source: NOAA GOES-16 | Updated every 10-15 minutes
+                </p>
+            </div>
+            
+            <div class="card">
+                <h2>🌤️ Current Weather (Your Location)</h2>
+                <div class="weather-data" id="weather-data">
+                    <div class="weather-item">
+                        <div class="weather-value" id="temp">--</div>
+                        <div class="weather-label">Temperature</div>
+                    </div>
+                    <div class="weather-item">
+                        <div class="weather-value" id="humidity">--</div>
+                        <div class="weather-label">Humidity</div>
+                    </div>
+                    <div class="weather-item">
+                        <div class="weather-value" id="wind">--</div>
+                        <div class="weather-label">Wind Speed</div>
+                    </div>
+                    <div class="weather-item">
+                        <div class="weather-value" id="clouds">--</div>
+                        <div class="weather-label">Cloud Cover</div>
+                    </div>
+                </div>
+                <p style="margin-top: 16px; font-size: 0.85rem; color: var(--text-muted);">
+                    Source: Open-Meteo API | No API key required
+                </p>
+            </div>
+        </div>
+        
+        <div class="card" style="margin-bottom: 20px;">
+            <h2>📡 Data Sources (All Free, No Key Required)</h2>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; margin-top: 12px;">
+                <div style="background: rgba(255,255,255,0.03); padding: 16px; border-radius: 12px;">
+                    <strong style="color: var(--accent);">GOES-16/17 (NOAA)</strong><br>
+                    <span style="font-size: 0.85rem; color: var(--text-muted);">Real-time weather satellite imagery. 10-15 min updates.</span>
+                </div>
+                <div style="background: rgba(255,255,255,0.03); padding: 16px; border-radius: 12px;">
+                    <strong style="color: var(--accent);">Open-Meteo</strong><br>
+                    <span style="font-size: 0.85rem; color: var(--text-muted);">Global weather forecasts & current conditions. Free, no signup.</span>
+                </div>
+                <div style="background: rgba(255,255,255,0.03); padding: 16px; border-radius: 12px;">
+                    <strong style="color: var(--accent);">NASA GIBS</strong><br>
+                    <span style="font-size: 0.85rem; color: var(--text-muted);">Global imagery browse services. Tile-based map overlays.</span>
+                </div>
+                <div style="background: rgba(255,255,255,0.03); padding: 16px; border-radius: 12px;">
+                    <strong style="color: var(--accent);">NASA FIRMS</strong><br>
+                    <span style="font-size: 0.85rem; color: var(--text-muted);">Active fire detection from MODIS/VIIRS. Free API key.</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card" style="margin-bottom: 30px;">
+            <h2>📝 Activity Log</h2>
+            <div class="log" id="log"></div>
+        </div>
+        
+        <footer>
+            <p>Data refreshes automatically every 5 minutes</p>
+            <p style="margin-top: 8px;">Built with free public APIs</p>
+        </footer>
+    </div>
+    
+    <script>
+        const logEl = document.getElementById('log');
+        
+        function log(msg) {
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `<span class="log-time">[${time}]</span> ${msg}`;
+            logEl.prepend(entry);
+        }
+        
+        function updateSatellite() {
+            const timestamp = Date.now();
+            const imgUrl = `https://cdn.star.nesdis.noaa.gov/GOES16/ABI/FD/GEOCOLOR/1808x1808.jpg?t=${timestamp}`;
+            document.getElementById('satellite-img').src = imgUrl;
+            log('Satellite image updated from NOAA GOES-16');
+        }
+        
+        async function updateWeather() {
+            try {
+                const position = await new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
+                });
+                
+                const lat = position.coords.latitude;
+                const lon = position.coords.longitude;
+                
+                const response = await fetch(
+                    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,precipitation,cloud_cover,wind_speed_10m&timezone=auto`
+                );
+                
+                const data = await response.json();
+                const current = data.current;
+                
+                document.getElementById('temp').textContent = `${current.temperature_2m}°C`;
+                document.getElementById('humidity').textContent = `${current.relative_humidity_2m}%`;
+                document.getElementById('wind').textContent = `${current.wind_speed_10m} km/h`;
+                document.getElementById('clouds').textContent = `${current.cloud_cover}%`;
+                
+                log(`Weather updated: ${lat.toFixed(2)}°N, ${lon.toFixed(2)}°W — ${current.temperature_2m}°C`);
+            } catch (err) {
+                log('Location access denied, using default coordinates');
+                
+                try {
+                    const response = await fetch(
+                        'https://api.open-meteo.com/v1/forecast?latitude=26.0&longitude=-97.5&current=temperature_2m,relative_humidity_2m,precipitation,cloud_cover,wind_speed_10m&timezone=auto'
+                    );
+                    
+                    const data = await response.json();
+                    const current = data.current;
+                    
+                    document.getElementById('temp').textContent = `${current.temperature_2m}°C`;
+                    document.getElementById('humidity').textContent = `${current.relative_humidity_2m}%`;
+                    document.getElementById('wind').textContent = `${current.wind_speed_10m} km/h`;
+                    document.getElementById('clouds').textContent = `${current.cloud_cover}%`;
+                    
+                    log(`Weather updated (default): ${current.temperature_2m}°C, ${current.cloud_cover}% clouds`);
+                } catch (err2) {
+                    log('ERROR: Weather API failed — ' + err2.message);
+                }
+            }
+        }
+        
+        // Initial load
+        log('Initializing Earth Tracker...');
+        updateSatellite();
+        updateWeather();
+        
+        // Auto refresh every 5 minutes
+        setInterval(() => {
+            updateSatellite();
+            updateWeather();
+        }, 300000);
+        
+        log('Auto-refresh enabled (5 min intervals)');
+    </script>
+</body>
+</html>
